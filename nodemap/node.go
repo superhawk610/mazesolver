@@ -1,5 +1,12 @@
 package nodemap
 
+const (
+	Up    = 0 // 0b00
+	Down  = 1 // 0b01
+	Left  = 2 // 0b10
+	Right = 3 // 0b11
+)
+
 type Input struct {
 	N bool
 	E bool
@@ -7,26 +14,9 @@ type Input struct {
 	W bool
 }
 
-func (i *Input) Critical() bool {
-	if i.PassthroughX() && !i.N && !i.S {
-		return false
-	}
-	if i.PassthroughY() && !i.E && !i.W {
-		return false
-	}
-	return true
-}
-
-func (i *Input) PassthroughX() bool {
-	return i.E && i.W
-}
-
-func (i *Input) PassthroughY() bool {
-	return i.N && i.S
-}
-
-func (i *Input) PassthroughXY() bool {
-	return i.PassthroughX() && i.PassthroughY()
+type Connection struct {
+	Direction int
+	Node      *Node
 }
 
 type Node struct {
@@ -34,7 +24,7 @@ type Node struct {
 	Input       *Input
 	IsStart     bool
 	IsEnd       bool
-	Connections []*Node
+	Connections []*Connection
 }
 
 func NewNode(offset uint, input *Input) *Node {
@@ -60,6 +50,29 @@ func NewEndNode(offset uint) *Node {
 	}
 }
 
+func (i *Input) PassthroughX() bool {
+	return i.E && i.W
+}
+
+func (i *Input) PassthroughY() bool {
+	return i.N && i.S
+}
+
+func (i *Input) PassthroughXY() bool {
+	return i.PassthroughX() && i.PassthroughY()
+}
+
+func (n *Node) Critical() bool {
+	i := n.Input
+	if i.PassthroughX() && !i.N && !i.S {
+		return false
+	}
+	if i.PassthroughY() && !i.E && !i.W {
+		return false
+	}
+	return true
+}
+
 func (n *Node) DeadEnd() bool {
 	var inputs int
 
@@ -79,25 +92,35 @@ func (n *Node) DeadEnd() bool {
 	return inputs == 1
 }
 
-func (from *Node) Connect(to *Node) {
+func (from *Node) Connect(to *Node, direction int) {
 	from.Connections = append(
 		from.Connections,
-		to,
+		&Connection{
+			Direction: direction,
+			Node:      to,
+		},
+	)
+	to.Connections = append(
+		to.Connections,
+		&Connection{
+			Direction: direction ^ 1, // 0b01
+			Node:      from,
+		},
 	)
 }
 
 func (n *Node) String() string {
 	// special nodes
 	if n.IsStart {
-		return "╷"
+		return "S"
 	}
 	if n.IsEnd {
-		return "╵"
+		return "E"
 	}
 	if n.DeadEnd() {
 		return "x"
 	}
-	if n.Input.Critical() {
+	if n.Critical() {
 		return "o"
 	}
 

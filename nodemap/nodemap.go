@@ -80,12 +80,40 @@ func FromMaze(maze *image.Image) *NodeMap {
 	}
 
 	// connect nodes
-	// for _, row := range nm.Nodes {
-	// 	for _, node := range row {
-	// 		// for every critical node, connect it to joining critical nodes
+	for currentRowIndex, row := range nm.Nodes {
+		for nodeIndex, node := range row {
+			// for every critical node, connect it to joining critical nodes
 
-	// 	}
-	// }
+			// connect to the next critical node in the current row
+			if node.Input.E {
+				for searchNodeIndex := nodeIndex + 1; searchNodeIndex < len(row); searchNodeIndex++ {
+					testNode := row[searchNodeIndex]
+					if testNode.Critical() {
+						node.Connect(testNode, Right)
+						break
+					}
+				}
+			}
+
+			// check for nodes below and connect first critical match
+			if node.Input.S {
+			Search:
+				for searchRowIndex := currentRowIndex + 1; searchRowIndex < len(nm.Nodes); searchRowIndex++ {
+					searchRow := nm.Nodes[searchRowIndex]
+					if len(searchRow) == 0 {
+						continue
+					}
+
+					for _, testNode := range searchRow {
+						if testNode.Critical() && testNode.Offset == node.Offset {
+							node.Connect(testNode, Down)
+							break Search
+						}
+					}
+				}
+			}
+		}
+	}
 
 	return nm
 }

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/superhawk610/mazesolver/nodemap"
-	"golang.org/x/image/bmp"
 	"log"
 	"os"
+
+	"github.com/superhawk610/mazesolver/nodemap"
+	"golang.org/x/image/bmp"
 )
 
 const mazeFile = "./mazes/easy.bmp"
