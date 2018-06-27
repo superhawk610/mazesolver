@@ -9,7 +9,10 @@ import (
 	"golang.org/x/image/bmp"
 )
 
-const mazeFile = "./mazes/easy.bmp"
+const (
+	mazeFile     = "./mazes/easy.bmp"
+	solutionFile = "./mazes/solution.bmp"
+)
 
 func main() {
 	mazeBmp, err := os.Open(mazeFile)
@@ -23,4 +26,16 @@ func main() {
 	nm := nodemap.FromMaze(&maze)
 
 	fmt.Println(nm.Visualize())
+
+	solution := nodemap.SolveDumb(nm)
+
+	os.Remove(solutionFile)
+	f, err := os.Create(solutionFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = nodemap.WriteSolution(f, maze, solution)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

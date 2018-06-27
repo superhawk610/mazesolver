@@ -1,5 +1,9 @@
 package nodemap
 
+import (
+	"image"
+)
+
 const (
 	Up    = 0 // 0b00
 	Down  = 1 // 0b01
@@ -16,37 +20,79 @@ type Input struct {
 
 type Connection struct {
 	Direction int
+	Length    int
+	Parent    *Node
 	Node      *Node
+	Used      bool
+}
+
+type Offset struct {
+	X, Y int
 }
 
 type Node struct {
-	Offset      uint
+	Offset      *Offset
 	Input       *Input
 	IsStart     bool
 	IsEnd       bool
 	Connections []*Connection
 }
 
-func NewNode(offset uint, input *Input) *Node {
+func NewNode(x int, y int, input *Input) *Node {
 	return &Node{
-		Offset: offset,
+		Offset: &Offset{X: x, Y: y},
 		Input:  input,
 	}
 }
 
-func NewStartNode(offset uint) *Node {
+func NewStartNode(x int, y int) *Node {
 	return &Node{
-		Offset:  offset,
+		Offset:  &Offset{X: x, Y: y},
 		Input:   &Input{S: true},
 		IsStart: true,
 	}
 }
 
-func NewEndNode(offset uint) *Node {
+func NewEndNode(x int, y int) *Node {
 	return &Node{
-		Offset: offset,
+		Offset: &Offset{X: x, Y: y},
 		Input:  &Input{N: true},
 		IsEnd:  true,
+	}
+}
+
+func (c *Connection) Use() {
+	if c.Used {
+		return
+	}
+
+	c.Used = true
+	for _, con := range c.Node.Connections {
+		if con.Node == c.Parent {
+			con.Used = true
+			return
+		}
+	}
+}
+
+func (c *Connection) OffsetAt(i int) image.Point {
+	var shiftUp, shiftRight, shiftDown, shiftLeft int
+
+	if c.Direction == Up {
+		shiftUp = 1
+	}
+	if c.Direction == Right {
+		shiftRight = 1
+	}
+	if c.Direction == Down {
+		shiftDown = 1
+	}
+	if c.Direction == Left {
+		shiftLeft = 1
+	}
+	return image.Point{
+		X: c.Parent.Offset.X - (i * shiftLeft) + (i * shiftRight),
+		Y: c.Parent.Offset.Y - (i * shiftUp) + (i * shiftDown),
 	}
 }
 
@@ -73,7 +119,31 @@ func (n *Node) Critical() bool {
 	return true
 }
 
+func (n *Node) RemainingConnections() int {
+	if len(n.Connections) == 0 {
+		return 0
+	}
+	var remaining int
+	for _, con := range n.Connections {
+		if !con.Used {
+			remaining++
+		}
+	}
+	return remaining
+}
+
+func (n *Node) Fresh() bool {
+	return len(n.Connections)-1 == n.RemainingConnections()
+}
+
+func (n *Node) Exhausted() bool {
+	return n.RemainingConnections() == 0
+}
+
 func (n *Node) DeadEnd() bool {
+	if n.IsStart {
+		return false
+	}
 	var inputs int
 
 	if n.Input.N {
@@ -92,11 +162,13 @@ func (n *Node) DeadEnd() bool {
 	return inputs == 1
 }
 
-func (from *Node) Connect(to *Node, direction int) {
+func (from *Node) Connect(to *Node, direction int, length int) {
 	from.Connections = append(
 		from.Connections,
 		&Connection{
 			Direction: direction,
+			Length:    length,
+			Parent:    from,
 			Node:      to,
 		},
 	)
@@ -104,6 +176,8 @@ func (from *Node) Connect(to *Node, direction int) {
 		to.Connections,
 		&Connection{
 			Direction: direction ^ 1, // 0b01
+			Length:    length,
+			Parent:    to,
 			Node:      from,
 		},
 	)

@@ -9,8 +9,8 @@ import (
 
 type NodeMap struct {
 	Nodes  [][]*Node
-	Width  uint
-	Height uint
+	Width  int
+	Height int
 }
 
 func isWall(c color.Color) bool {
@@ -24,8 +24,8 @@ func FromMaze(maze *image.Image) *NodeMap {
 	endX := (*maze).Bounds().Max.X
 	endY := (*maze).Bounds().Max.Y
 	nm := &NodeMap{
-		Width:  uint(endX - startX),
-		Height: uint(endY - startY),
+		Width:  endX - startX,
+		Height: endY - startY,
 	}
 
 	// create nodes at critical points
@@ -47,7 +47,7 @@ func FromMaze(maze *image.Image) *NodeMap {
 			if y == 0 {
 				row = append(
 					row,
-					NewStartNode(uint(x)),
+					NewStartNode(x, y),
 				)
 				continue
 			}
@@ -56,7 +56,7 @@ func FromMaze(maze *image.Image) *NodeMap {
 			if y == endY-1 {
 				row = append(
 					row,
-					NewEndNode(uint(x)),
+					NewEndNode(x, y),
 				)
 				continue
 			}
@@ -70,7 +70,7 @@ func FromMaze(maze *image.Image) *NodeMap {
 			}
 			row = append(
 				row,
-				NewNode(uint(x), input),
+				NewNode(x, y, input),
 			)
 		}
 		nm.Nodes = append(
@@ -83,13 +83,17 @@ func FromMaze(maze *image.Image) *NodeMap {
 	for currentRowIndex, row := range nm.Nodes {
 		for nodeIndex, node := range row {
 			// for every critical node, connect it to joining critical nodes
+			if !node.Critical() {
+				continue
+			}
 
 			// connect to the next critical node in the current row
 			if node.Input.E {
 				for searchNodeIndex := nodeIndex + 1; searchNodeIndex < len(row); searchNodeIndex++ {
 					testNode := row[searchNodeIndex]
 					if testNode.Critical() {
-						node.Connect(testNode, Right)
+						fmt.Printf("(%v, %v) -> (%v, %v)\n", node.Offset.X, node.Offset.Y, testNode.Offset.X, testNode.Offset.Y)
+						node.Connect(testNode, Right, testNode.Offset.X-node.Offset.X)
 						break
 					}
 				}
@@ -105,8 +109,8 @@ func FromMaze(maze *image.Image) *NodeMap {
 					}
 
 					for _, testNode := range searchRow {
-						if testNode.Critical() && testNode.Offset == node.Offset {
-							node.Connect(testNode, Down)
+						if testNode.Critical() && testNode.Offset.X == node.Offset.X {
+							node.Connect(testNode, Down, searchRowIndex-currentRowIndex)
 							break Search
 						}
 					}
@@ -121,8 +125,12 @@ func FromMaze(maze *image.Image) *NodeMap {
 func (nm *NodeMap) Visualize() string {
 	var sb strings.Builder
 
-	sb.WriteString("NodeMap\n")
-	for _, row := range nm.Nodes {
+	sb.WriteString("NodeMap\n ")
+	for i := 0; i < nm.Width; i++ {
+		sb.WriteString(fmt.Sprintf("%v", i%10))
+	}
+	sb.WriteString("\n")
+	for rowIndex, row := range nm.Nodes {
 		var (
 			node      *Node
 			nodeIndex int
@@ -131,8 +139,8 @@ func (nm *NodeMap) Visualize() string {
 		if len(row) > 0 {
 			node = row[0]
 		}
-		for i := uint(0); i < nm.Width; i++ {
-			if node != nil && node.Offset == i {
+		for i := 0; i < nm.Width; i++ {
+			if node != nil && node.Offset.X == i {
 
 				// display correct node type
 				sb.WriteString(node.String())
@@ -142,7 +150,8 @@ func (nm *NodeMap) Visualize() string {
 				if nodeIndex < len(row) {
 					node = row[nodeIndex]
 				}
-
+			} else if i == 0 {
+				sb.WriteString(fmt.Sprintf("%v ", rowIndex%10))
 			} else {
 				sb.WriteString(" ")
 			}
@@ -167,7 +176,7 @@ func (nm *NodeMap) String() string {
 			sb.WriteString(
 				fmt.Sprintf(
 					"%v%s",
-					n.Offset,
+					n.Offset.X,
 					terminator,
 				),
 			)
