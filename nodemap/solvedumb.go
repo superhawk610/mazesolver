@@ -1,84 +1,66 @@
 package nodemap
 
 import (
-	"fmt"
-	"golang.org/x/image/bmp"
 	"image"
-	"image/color"
 	"io"
+
+	"golang.org/x/image/bmp"
 )
 
-type SolutionImage struct {
-	image.Image
-	Solution map[image.Point]float64
-}
-
-func NewSolutionImage(i image.Image, sol Solution) *SolutionImage {
-	mappedSolution := make(map[image.Point]float64)
-
-	totalLength := float64(sol.Length())
-	fmt.Println(totalLength)
-	for i, node := range sol.Path {
-		if node.IsEnd {
-			p := node.Connections[0].OffsetAt(0)
-			mappedSolution[p] = float64(i) / totalLength
-			continue
-		}
-
-		for _, con := range node.Connections {
-			if con.Node != sol.Path[i+1] {
-				continue
-			}
-
-			for j := 0; j < con.Length; j++ {
-				p := con.OffsetAt(j)
-				mappedSolution[p] = float64(i) / totalLength
-			}
-			break
-		}
-	}
-
-	return &SolutionImage{
-		Image:    i,
-		Solution: mappedSolution,
-	}
-}
-
-func (sm *SolutionImage) At(x, y int) color.Color {
-	p := image.Point{
-		X: x,
-		Y: y,
-	}
-	if percentage, ok := sm.Solution[p]; ok {
-		return color.RGBA{
-			R: uint8(255 * (1 - percentage)),
-			G: 0,
-			B: uint8(255 * percentage),
-			A: 255,
-		}
-	}
-
-	return sm.Image.At(x, y)
-}
-
 type Solution struct {
-	Path []*Node
+	segments [][]*Node
+}
+
+func (s *Solution) Path() []*Node {
+	var path []*Node
+
+	for _, seg := range s.segments {
+		path = append(
+			path,
+			seg...,
+		)
+	}
+
+	return path
+}
+
+func (s *Solution) StepIn() {
+	s.segments = append(
+		s.segments,
+		make([]*Node, 0),
+	)
+}
+
+func (s *Solution) Walk(n *Node) {
+	if len(s.segments) == 0 {
+		s.StepIn()
+	}
+	currentPath := &s.segments[len(s.segments)-1]
+
+	*currentPath = append(
+		*currentPath,
+		n,
+	)
+}
+
+func (s *Solution) StepBack() {
+	s.segments = s.segments[:len(s.segments)-1]
 }
 
 func (s *Solution) Length() int {
 	length := 0
+	path := s.Path()
 
-	for _, node := range s.Path {
+	for i, node := range path {
 		if node.IsEnd {
 			length++
 			break
 		}
-		for i, con := range node.Connections {
-			if con.Node != s.Path[i+1] {
+		for _, con := range node.Connections {
+			if con.Node != path[i+1] {
 				continue
 			}
 
-			fmt.Println(con.Length)
 			length += con.Length
 		}
 	}
@@ -90,19 +72,19 @@ var inflections []*Node
 var solution Solution
 
 func SolveDumbRecurse(n *Node) bool {
-	fmt.Printf(
-		"moving to node at {x: %v, y: %v}\n",
-		n.Offset.X, n.Offset.Y,
-	)
+	// fmt.Printf(
+	// 	"moving to node at (x: %v, y: %v)\n",
+	// 	n.Offset.X,
+	// 	n.Offset.Y,
+	// )
 
-	if len(inflections) == 0 {
-		solution.Path = append(
-			solution.Path,
-			n,
-		)
-	}
+	// fmt.Printf(
+	// 	"%v\n",
+	// 	solution.segments,
+	// )
 
 	if n.IsEnd {
+		solution.Walk(n)
 		return true
 	}
 
@@ -111,6 +93,7 @@ func SolveDumbRecurse(n *Node) bool {
 			inflections,
 			n,
 		)
+		solution.StepIn()
 	}
 
 	for _, con := range n.Connections {
@@ -119,6 +102,7 @@ func SolveDumbRecurse(n *Node) bool {
 		}
 
 		con.Use()
+		solution.Walk(n)
 		return SolveDumbRecurse(con.Node)
 	}
 
@@ -126,13 +110,17 @@ func SolveDumbRecurse(n *Node) bool {
 		infl := inflections[len(inflections)-1]
 		if infl.RemainingConnections() == 1 {
 			inflections = inflections[:len(inflections)-1]
+			solution.StepBack()
 		}
 
-		fmt.Printf("\n- returning to inflection at {x: %v, y: %v}\n", infl.Offset.X, infl.Offset.Y)
+		// fmt.Printf(
+		// 	"returning to inflection point at (x: %v, y: %v)\n",
+		// 	infl.Offset.X,
+		// 	infl.Offset.Y,
+		// )
 		return SolveDumbRecurse(infl)
 	}
 
-	panic("No solution found.")
 	return false
 }
 

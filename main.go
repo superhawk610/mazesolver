@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/superhawk610/mazesolver/nodemap"
 	"golang.org/x/image/bmp"
@@ -24,10 +25,18 @@ func main() {
 		log.Fatal(err)
 	}
 	nm := nodemap.FromMaze(&maze)
+	nm.Stat()
 
-	fmt.Println(nm.Visualize())
+	// fmt.Println(nm.Visualize())
 
+	start := time.Now()
 	solution := nodemap.SolveDumb(nm)
+	// fmt.Println(solution.Path())
+	now := time.Now()
+	fmt.Printf(
+		"Solution found using SolveDumb in %v\n",
+		now.Sub(start),
+	)
 
 	os.Remove(solutionFile)
 	f, err := os.Create(solutionFile)

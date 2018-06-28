@@ -92,7 +92,6 @@ func FromMaze(maze *image.Image) *NodeMap {
 				for searchNodeIndex := nodeIndex + 1; searchNodeIndex < len(row); searchNodeIndex++ {
 					testNode := row[searchNodeIndex]
 					if testNode.Critical() {
-						fmt.Printf("(%v, %v) -> (%v, %v)\n", node.Offset.X, node.Offset.Y, testNode.Offset.X, testNode.Offset.Y)
 						node.Connect(testNode, Right, testNode.Offset.X-node.Offset.X)
 						break
 					}
@@ -120,6 +119,31 @@ func FromMaze(maze *image.Image) *NodeMap {
 	}
 
 	return nm
+}
+
+func (nm *NodeMap) Stat() {
+	var totalNodes, criticalNodes, deadNodes int
+
+	for _, row := range nm.Nodes {
+		for _, node := range row {
+			totalNodes++
+			if node.Critical() {
+				criticalNodes++
+			}
+			if node.DeadEnd() {
+				deadNodes++
+			}
+		}
+	}
+
+	fmt.Printf(
+		"Nodes created: %v\n"+
+			"Critical nodes: %v\n"+
+			"Dead end nodes: %v\n",
+		totalNodes,
+		criticalNodes,
+		deadNodes,
+	)
 }
 
 func (nm *NodeMap) Visualize() string {
